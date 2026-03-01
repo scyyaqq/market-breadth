@@ -1,0 +1,21 @@
+name: Market Breadth Daily
+
+on:
+  schedule:
+    - cron: '30 7 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    - run: pip install akshare pandas
+    - run: python market_breadth.py
+    - uses: actions/upload-artifact@v3
+      with:
+        name: market-breadth-data
+        path: output/*.csv
