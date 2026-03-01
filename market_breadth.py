@@ -5,6 +5,7 @@ import time
 import random
 from datetime import datetime
 import os
+import sys
 
 # 8大板块映射
 INDUSTRY_TO_MACRO = {
@@ -22,50 +23,56 @@ def get_market_breadth():
     """获取市场宽度数据"""
     print("开始获取数据...")
     
-    # 获取行业板块列表
-    board_df = ak.stock_board_industry_name_em()
-    print(f"获取到{len(board_df)}个行业板块")
-    time.sleep(random.uniform(2, 4))
-    
-    # 获取全市场实时行情
-    spot_df = ak.stock_zh_a_spot_em()
-    today = datetime.now().strftime("%Y-%m-%d")
-    print(f"获取到{len(spot_df)}只股票行情")
-    
-    # 按行业统计
-    rows = []
-    for _, row in board_df.iterrows():
-        industry = row['板块名称']
-        if industry not in INDUSTRY_TO_MACRO:
-            continue
-            
-        macro = INDUSTRY_TO_MACRO[industry]
+    try:
+        # 获取行业板块列表
+        board_df = ak.stock_board_industry_name_em()
+        print(f"获取到{len(board_df)}个行业板块")
+        time.sleep(random.uniform(2, 4))
         
-        # 获取成分股
-        try:
-            cons_df = ak.stock_board_industry_cons_em(symbol=industry)
-            time.sleep(random.uniform(1, 3))
+        # 获取全市场实时行情
+        spot_df = ak.stock_zh_a_spot_em()
+        today = datetime.now().strftime("%Y-%m-%d")
+        print(f"获取到{len(spot_df)}只股票行情")
+        
+        # 按行业统计
+        rows = []
+        for _, row in board_df.iterrows():
+            industry = row['板块名称']
+            if industry not in INDUSTRY_TO_MACRO:
+                continue
+                
+            macro = INDUSTRY_TO_MACRO[industry]
             
-            # 统计涨跌
-            sub = spot_df[spot_df['代码'].isin(cons_df['代码'])]
-            up = (sub['涨跌幅'] > 0).sum()
-            down = (sub['涨跌幅'] < 0).sum()
-            flat = (sub['涨跌幅'] == 0).sum()
-            
-            rows.append({
-                '日期': today,
-                '大板块': macro,
-                '细行业': industry,
-                '上涨家数': int(up),
-                '下跌家数': int(down),
-                '平盘家数': int(flat),
-            })
-            print(f"✓ {industry}: 涨{up} 跌{down}")
-        except Exception as e:
-            print(f"✗ {industry}失败: {e}")
-            continue
-    
-    return pd.DataFrame(rows)
+            # 获取成分股
+            try:
+                cons_df = ak.stock_board_industry_cons_em(symbol=industry)
+                time.sleep(random.uniform(1, 3))
+                
+                # 统计涨跌
+                sub = spot_df[spot_df['代码'].isin(cons_df['代码'])]
+                up = (sub['涨跌幅'] > 0).sum()
+                down = (sub['涨跌幅'] < 0).sum()
+                flat = (sub['涨跌幅'] == 0).sum()
+                
+                rows.append({
+                    '日期': today,
+                    '大板块': macro,
+                    '细行业': industry,
+                    '上涨家数': int(up),
+                    '下跌家数': int(down),
+                    '平盘家数': int(flat),
+                })
+                print(f"✓ {industry}: 涨{up} 跌{down}")
+            except Exception as e:
+                print(f"✗ {industry}失败: {e}")
+                continue
+        
+        return pd.DataFrame(rows)
+        
+    except Exception as e:
+        print(f"获取数据失败: {e}")
+        # 创建空DataFrame
+        return pd.DataFrame(columns=['日期', '大板块', '细行业', '上涨家数', '下跌家数', '平盘家数'])
 
 if __name__ == "__main__":
     df = get_market_breadth()
@@ -82,6 +89,9 @@ if __name__ == "__main__":
     print(f"共{len(df)}条数据")
     
     # 打印汇总
-    print("\n各板块汇总:")
-    summary = df.groupby('大板块')[[['上涨家数', '下跌家数']].sum()
-    print(summary)
+    if len(df) > 0:
+        print("\n各板块汇总:")
+        summary = df.groupby('大板块')[[['上涨家数', '下跌家数']].sum()
+        print(summary)
+    else:
+        print("警告: 没有获取到数据")
